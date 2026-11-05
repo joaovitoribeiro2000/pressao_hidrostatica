@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laboratório de Pressão Hidrostática</title>
+<style>
+:root{--bg:#eaf3fa;--panel:#ffffff;--ink:#12324a;--mute:#5b7388;--line:#c9dbe8;--acc:#e8590c;--ok:#1f8a4c;--warn:#c92a2a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a24;--panel:#16283a;--ink:#e3eef7;--mute:#90a9bd;--line:#2a4259;--acc:#ff8a4c;--ok:#51cf7f;--warn:#ff6b6b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1a24;--panel:#16283a;--ink:#e3eef7;--mute:#90a9bd;--line:#2a4259;--acc:#ff8a4c;--ok:#51cf7f;--warn:#ff6b6b;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Trebuchet MS","Segoe UI",Verdana,sans-serif}
+h1{font-size:20px;margin:0;padding:14px 18px 4px}
+p.sub{margin:0;padding:0 18px 10px;color:var(--mute);font-size:13px}
+.wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;padding:0 14px 18px;max-width:1100px;margin:0 auto}
+@media(max-width:760px){.wrap{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+canvas{width:100%;display:block;touch-action:none;border-radius:8px}
+#tank{cursor:grab}
+label{display:flex;justify-content:space-between;font-weight:600;margin-top:10px}
+label span{color:var(--acc)}
+input[type=range]{width:100%;accent-color:var(--acc)}
+select{width:100%;padding:7px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+td{padding:6px 4px;border-bottom:1px solid var(--line)}td:last-child{color:var(--mute);width:48px}td:nth-child(2){text-align:right;font-weight:700}
+tr.hi td:nth-child(2){color:var(--ok)}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.badge{flex:1;min-width:140px;border:2px solid var(--line);border-radius:10px;padding:8px;font-size:13px}
+.badge b{display:block;font-size:14px;margin-top:2px}
+.f{font-size:12px;color:var(--mute);margin-top:8px}
+button{margin-top:10px;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;cursor:pointer}
+</style>
+</head>
+<body>
+<h1>Laboratório de Pressão Hidrostática</h1>
+<p class="sub">Arraste o sensor dentro do tanque, troque o fluido, o planeta e a temperatura.</p>
+<div class="wrap">
+ <div class="box">
+  <canvas id="tank" width="560" height="460"></canvas>
+  <div class="f">P<sub>abs</sub> = P<sub>atm</sub> + ρ·g·h. As setas ao redor do sensor crescem com a pressão.</div>
+ </div>
+ <div>
+  <div class="box">
+   <label>Fluido</label>
+   <select id="fl"><option>Água doce</option><option selected>Água salgada</option><option>Óleo</option><option>Mercúrio</option></select>
+   <label>Planeta</label>
+   <select id="pl"><option>Terra</option><option>Marte</option><option>Vénus</option><option>Planeta X</option></select>
+   <label>Gravidade <span id="gv"></span></label>
+   <input type="range" id="g" min="0.5" max="30" step="0.1" value="9.81">
+   <label>Profundidade <span id="hv"></span></label>
+   <input type="range" id="h" min="0" max="100" step="0.5" value="2.5">
+   <label>Temperatura <span id="tv"></span></label>
+   <input type="range" id="t" min="-50" max="1000" step="1" value="60">
+  </div>
+  <div class="box" style="margin-top:14px">
+   <canvas id="gauge" width="360" height="230"></canvas>
+   <table id="tb"></table>
+   <div class="badges">
+    <div class="badge">Estado da matéria<b id="st"></b></div>
+    <div class="badge" id="cvb">Cavitação<b id="cv"></b></div>
+   </div>
+   <button id="rs">Restaurar valores</button>
+  </div>
+ </div>
+</div>
+<script>
+var F={"Água doce":{rho:1000,Tt:.01,Pt:.00611,Tc:373.946,Pc:220.64,c:"#4aa8e8"},
+"Água salgada":{rho:1030,Tt:-2,Pt:.006,Tc:374,Pc:220,c:"#2f8fb8"},
+"Óleo":{rho:800,Tt:-30,Pt:.001,Tc:450,Pc:35,c:"#d9a520"},
+"Mercúrio":{rho:13600,Tt:-38.83,Pt:2e-6,Tc:1477,Pc:1670,c:"#9aa5ad"}};
+var G={"Terra":9.81,"Marte":3.71,"Vénus":8.87};
+var SKY={"Terra":["#9fd3f5","#dff1fb"],"Marte":["#d98a5f","#f2c9a8"],"Vénus":["#d9c070","#f1e3b0"],"Planeta X":["#8b6fc9","#c9b8ee"]};
+var PATM=101325,BAR=1e5,PSI=6894.757;
+var $=function(i){return document.getElementById(i)};
+var S={h:2.5,g:9.81};
+function fmt(v,d){return v.toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d})}
+function psat(T,n){var f=F[n];
+ if(n==="Água doce"){if(T>=1&&T<=100)return Math.pow(10,8.07131-1730.63/(233.426+T))*0.00133322;
+  if(T>100&&T<f.Tc)return f.Pc*Math.exp(5*(1-(f.Tc+273.15)/(T+273.15)));return NaN}
+ if(T<=f.Tt||T>=f.Tc)return NaN;
+ return Math.max(f.Pc*Math.exp(5*(1-(f.Tc+273.15)/(T+273.15))),f.Pt)}
+function estado(T,P,n){var f=F[n];
+ if(T>f.Tc&&P>f.Pc)return"Fluido supercrítico";
+ if(Math.abs(T-f.Tc)/f.Tc<.01&&Math.abs(P-f.Pc)/f.Pc<.05)return"Próximo ao ponto crítico";
+ if(T>=f.Tc)return P>f.Pc?"Fluido supercrítico":"Gás";
+ if(T<f.Tt)return P<f.Pt?"Vapor / gás":"Sólido";
+ var ps=psat(T,n);if(!isFinite(ps))return"Fora da faixa do modelo";
+ if(Math.abs(P-ps)/ps<.02)return"Saturação (líquido + vapor)";
+ return P>ps?"Líquido comprimido":"Vapor superaquecido"}
+function cav(T,P,n){var ps=psat(T,n);if(!isFinite(ps))return["Indeterminada",0];
+ var r=ps/P;if(r<.5)return["Sem cavitação",0];if(r<.9)return["Risco baixo",1];if(r<1)return["Incipiente",2];if(r<1.5)return["Moderada",3];return["Intensa",4]}
+
+var tk=$("tank"),tc=tk.getContext("2d"),gc=$("gauge").getContext("2d");
+var X0=0,Y0=90,Y1=430; // superfície e fundo (px)
+function pAbs(){return PATM+F[$("fl").value].rho*S.g*S.h}
+function drawTank(){
+ var c=tc,W=tk.width,pl=$("pl").value,fl=F[$("fl").value];
+ var sg=c.createLinearGradient(0,0,0,Y0);sg.addColorStop(0,SKY[pl][0]);sg.addColorStop(1,SKY[pl][1]);
+ c.fillStyle=sg;c.fillRect(0,0,W,Y0);
+ var wg=c.createLinearGradient(0,Y0,0,Y1);wg.addColorStop(0,fl.c+"99");wg.addColorStop(1,fl.c);
+ c.fillStyle=wg;c.fillRect(60,Y0,W-120,Y1-Y0);
+ c.fillStyle="#7a8793";c.fillRect(40,Y0-20,20,Y1-Y0+40);c.fillRect(W-60,Y0-20,20,Y1-Y0+40);c.fillRect(40,Y1,W-80,20);
+ c.fillStyle="#fff";c.font="12px sans-serif";c.textAlign="left";
+ for(var d=0;d<=100;d+=10){var y=Y0+d/100*(Y1-Y0);c.fillRect(60,y,10,1.5);c.fillText(d+" m",72,y+4)}
+ // sensor
+ var py=Y0+S.h/100*(Y1-Y0),px=W/2,pb=pAbs()/BAR,L=14+40*(1-Math.exp(-pb/12));
+ c.strokeStyle="#fff";c.fillStyle="#fff";c.lineWidth=3;
+ for(var k=0;k<8;k++){var a=k*Math.PI/4,x1=px+Math.cos(a)*(16+L),y1=py+Math.sin(a)*(16+L),x2=px+Math.cos(a)*18,y2=py+Math.sin(a)*18;
+  c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();
+  c.beginPath();c.moveTo(x2,y2);c.lineTo(x2+Math.cos(a+2.6)*9,y2+Math.sin(a+2.6)*9);c.lineTo(x2+Math.cos(a-2.6)*9,y2+Math.sin(a-2.6)*9);c.fill()}
+ c.beginPath();c.arc(px,py,16,0,7);c.fillStyle="#e8590c";c.fill();c.lineWidth=3;c.strokeStyle="#fff";c.stroke();
+ c.fillStyle="#fff";c.textAlign="center";c.font="bold 11px sans-serif";c.fillText("P",px,py+4);
+ c.textAlign="left";c.fillStyle="#12324a";c.font="bold 13px sans-serif";
+ c.fillText("Superfície: "+fmt(PATM/BAR,3)+" bar",70,Y0-28);
+}
+function drawGauge(){
+ var c=gc,W=360,pb=pAbs()/BAR,mx=Math.max(15,Math.ceil(pb/10)*10),cx=180,cy=130,r=100;
+ c.clearRect(0,0,W,230);var cs=getComputedStyle(document.documentElement),ink=cs.getPropertyValue("--ink");
+ var A=function(f){return(225-f*270)*Math.PI/180};
+ c.lineWidth=5;c.strokeStyle=ink;c.beginPath();c.arc(cx,cy,r,-A(0),-A(1),false);c.stroke();
+ c.fillStyle=ink;c.font="bold 12px sans-serif";c.textAlign="center";c.textBaseline="middle";c.lineWidth=2;
+ for(var i=0;i<=10;i++){var a=A(i/10),ca=Math.cos(a),sa=-Math.sin(a);
+  c.beginPath();c.moveTo(cx+.9*r*ca,cy+.9*r*sa);c.lineTo(cx+r*ca,cy+r*sa);c.stroke();
+  c.fillText((mx*i/10).toFixed(0),cx+.75*r*ca,cy+.75*r*sa)}
+ var a=A(Math.min(pb/mx,1.02));c.strokeStyle="#d9534f";c.lineWidth=4;c.beginPath();c.moveTo(cx,cy);c.lineTo(cx+.85*r*Math.cos(a),cy-.85*r*Math.sin(a));c.stroke();
+ c.fillStyle=ink;c.beginPath();c.arc(cx,cy,8,0,7);c.fill();
+ c.font="bold 14px sans-serif";c.fillText("Pressão absoluta: "+fmt(pb,2)+" bar",cx,215);
+}
+function row(n,v,u,hi){return'<tr'+(hi?' class="hi"':'')+'><td>'+n+'</td><td>'+v+'</td><td>'+u+'</td></tr>'}
+function update(){
+ var n=$("fl").value,T=+$("t").value,pa=pAbs(),pm=pa-PATM,pb=pa/BAR;
+ $("gv").textContent=fmt(S.g,2)+" m/s²";$("hv").textContent=fmt(S.h,1)+" m";$("tv").textContent=T+" °C";
+ $("tb").innerHTML=row("Densidade",fmt(F[n].rho,0),"kg/m³")+row("Pressão manométrica",fmt(pm/1000,2),"kPa")+
+  row("Pressão absoluta",fmt(pa/1000,2),"kPa",1)+row("Pressão absoluta",fmt(pa/PATM,2),"atm",1)+
+  row("Pressão absoluta",fmt(pb,2),"bar")+row("Pressão absoluta",fmt(pa/PSI,2),"psi")+
+  row("Pressão de saturação",isFinite(psat(T,n))?fmt(psat(T,n),3):"—","bar");
+ $("st").textContent=estado(T,pb,n);
+ var cv=cav(T,pb,n);$("cv").textContent=cv[0];
+ $("cvb").style.borderColor=["var(--ok)","var(--ok)","var(--acc)","var(--warn)","var(--warn)"][cv[1]];
+ drawTank();drawGauge();
+}
+function setPlanet(){var p=$("pl").value,g=$("g");
+ if(p==="Planeta X")g.disabled=false;else{g.disabled=true;g.value=G[p]}S.g=+g.value}
+function drag(e){var r=tk.getBoundingClientRect(),y=(e.clientY-r.top)*tk.height/r.height;
+ S.h=Math.round(Math.max(0,Math.min(100,(y-Y0)/(Y1-Y0)*100))*2)/2;$("h").value=S.h;update()}
+var dn=false;
+tk.addEventListener("pointerdown",function(e){dn=true;tk.setPointerCapture(e.pointerId);drag(e)});
+tk.addEventListener("pointermove",function(e){if(dn)drag(e)});
+tk.addEventListener("pointerup",function(){dn=false});
+$("h").oninput=function(){S.h=+this.value;update()};
+$("g").oninput=function(){S.g=+this.value;update()};
+$("t").oninput=update;$("fl").onchange=update;
+$("pl").onchange=function(){setPlanet();update()};
+$("rs").onclick=function(){$("fl").value="Água salgada";$("pl").value="Terra";$("t").value=60;S.h=2.5;$("h").value=2.5;setPlanet();update()};
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",update);
+setPlanet();update();
+</script>
+</body>
+</html>
