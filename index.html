@@ -47,7 +47,9 @@ button{margin-top:10px;padding:7px 12px;border-radius:8px;border:1px solid var(-
  <div>
   <div class="box">
    <label>Fluido</label>
-   <select id="fl"><option>Água doce</option><option selected>Água salgada</option><option>Óleo</option><option>Mercúrio</option></select>
+   <select id="fl"><option>Água doce</option><option selected>Água salgada</option><option>Óleo</option><option>Mercúrio</option><option>Superfluído Ajustável</option></select>
+   <label>Densidade <span id="dv"></span></label>
+   <input type="range" id="d" min="100" max="20000" step="10" value="1000">
    <label>Planeta</label>
    <select id="pl"><option>Terra</option><option>Marte</option><option>Vénus</option><option>Planeta X</option></select>
    <label>Gravidade <span id="gv"></span></label>
@@ -77,7 +79,8 @@ button{margin-top:10px;padding:7px 12px;border-radius:8px;border:1px solid var(-
 var F={"Água doce":{rho:1000,Tt:.01,Pt:.00611,Tc:373.946,Pc:220.64,c:"#4aa8e8"},
 "Água salgada":{rho:1030,Tt:-2,Pt:.006,Tc:374,Pc:220,c:"#2f8fb8"},
 "Óleo":{rho:800,Tt:-30,Pt:.001,Tc:450,Pc:35,c:"#d9a520"},
-"Mercúrio":{rho:13600,Tt:-38.83,Pt:2e-6,Tc:1477,Pc:1670,c:"#9aa5ad"}};
+"Mercúrio":{rho:13600,Tt:-38.83,Pt:2e-6,Tc:1477,Pc:1670,c:"#9aa5ad"},
+"Superfluído Ajustável":{rho:1000,Tt:-30,Pt:.001,Tc:450,Pc:35,c:"#9b59b6"}};
 var G={"Terra":9.81,"Marte":3.71,"Vénus":8.87};
 var SKY={"Terra":["#9fd3f5","#dff1fb"],"Marte":["#d98a5f","#f2c9a8"],"Vénus":["#d9c070","#f1e3b0"],"Planeta X":["#8b6fc9","#c9b8ee"]};
 var PATM=101325,BAR=1e5,PSI=6894.757;
@@ -164,7 +167,7 @@ function drawProfile(){var c=fc,W=560,H=420,g=S.g,n=$("fl").value,ink=css("--ink
  c.font="11px sans-serif";c.lineWidth=1;c.strokeStyle=ln;c.fillStyle=ink;
  for(var i=0;i<=5;i++){var a=xm*i/5,h=20*i;c.beginPath();c.moveTo(X(a),m.t);c.lineTo(X(a),H-m.b);c.moveTo(m.l,Y(h));c.lineTo(W-m.r,Y(h));c.stroke();c.textAlign="center";c.fillText(a.toFixed(0),X(a),H-m.b+14);c.textAlign="right";c.fillText(h,m.l-6,Y(h)+4)}
  c.textAlign="center";c.fillText("Pressão absoluta (atm)",W/2,H-6);c.save();c.translate(12,H/2);c.rotate(-Math.PI/2);c.fillText("Profundidade (m)",0,0);c.restore();
- var ly=m.t+14;for(k in F){c.strokeStyle=F[k].c;c.lineWidth=k===n?4:1.5;c.globalAlpha=k===n?1:.5;c.beginPath();c.moveTo(X(1),Y(0));c.lineTo(X((PATM+F[k].rho*g*100)/PATM),Y(100));c.stroke();c.globalAlpha=1;c.fillStyle=F[k].c;c.textAlign="left";c.font="bold 12px sans-serif";c.fillText(k,W-110,ly);ly+=15}
+ var ly=m.t+14;for(k in F){c.strokeStyle=F[k].c;c.lineWidth=k===n?4:1.5;c.globalAlpha=k===n?1:.5;c.beginPath();c.moveTo(X(1),Y(0));c.lineTo(X((PATM+F[k].rho*g*100)/PATM),Y(100));c.stroke();c.globalAlpha=1;c.fillStyle=F[k].c;c.textAlign="left";c.font="bold 12px sans-serif";c.fillText(k,W-150,ly);ly+=15}
  c.fillStyle="#e8590c";c.strokeStyle="#fff";c.lineWidth=2;c.beginPath();c.arc(X(pAbs()/PATM),Y(S.h),7,0,7);c.fill();c.stroke()}
 function hw(x){return x<300||x>820?110:x<480?110-70*(x-300)/180:x<=640?40:40+70*(x-640)/180}
 function nb(){return{x:450+Math.random()*80,y:150+(Math.random()-.5)*60,r:3+Math.random()*(3+CAV*2),v:1.5+Math.random()}}
@@ -179,7 +182,7 @@ function drawCav(){var c=vc,n=$("fl").value,ink=css("--ink"),tg=[0,8,18,35,60][C
 function row(n,v,u,hi){return'<tr'+(hi?' class="hi"':'')+'><td>'+n+'</td><td>'+v+'</td><td>'+u+'</td></tr>'}
 function update(){
  var n=$("fl").value,T=+$("t").value,pa=pAbs(),pm=pa-PATM,pb=pa/BAR;
- $("gv").textContent=fmt(S.g,2)+" m/s²";$("hv").textContent=fmt(S.h,1)+" m";$("tv").textContent=T+" °C";
+ $("gv").textContent=fmt(S.g,2)+" m/s²";$("dv").textContent=fmt(F[n].rho,0)+" kg/m³";$("hv").textContent=fmt(S.h,1)+" m";$("tv").textContent=T+" °C";
  $("tb").innerHTML=row("Densidade",fmt(F[n].rho,0),"kg/m³")+row("Pressão manométrica",fmt(pm/1000,2),"kPa")+
   row("Pressão absoluta",fmt(pa/1000,2),"kPa",1)+row("Pressão absoluta",fmt(pa/PATM,2),"atm",1)+
   row("Pressão absoluta",fmt(pb,2),"bar")+row("Pressão absoluta",fmt(pa/PSI,2),"psi")+
@@ -190,6 +193,8 @@ function update(){
  CAV=cv[1];var ps=psat(T,n);CT="Psat = "+(isFinite(ps)?fmt(ps,3):"—")+" bar  |  Pabs = "+fmt(pb,3)+" bar  |  Cavitação: "+cv[0].toLowerCase();
  drawTank();drawGauge();drawProfile();drawPhase();
 }
+var CF="Superfluído Ajustável";
+function setFluid(){var n=$("fl").value,d=$("d");d.disabled=n!==CF;d.value=F[n].rho}
 function setPlanet(){var p=$("pl").value,g=$("g");
  if(p==="Planeta X")g.disabled=false;else{g.disabled=true;g.value=G[p]}S.g=+g.value}
 function drag(e){var r=tk.getBoundingClientRect(),y=(e.clientY-r.top)*tk.height/r.height;
@@ -200,11 +205,12 @@ tk.addEventListener("pointermove",function(e){if(dn)drag(e)});
 tk.addEventListener("pointerup",function(){dn=false});
 $("h").oninput=function(){S.h=+this.value;update()};
 $("g").oninput=function(){S.g=+this.value;update()};
-$("t").oninput=update;$("fl").onchange=update;
+$("t").oninput=update;$("fl").onchange=function(){setFluid();update()};
+$("d").oninput=function(){F[CF].rho=+this.value;update()};
 $("pl").onchange=function(){setPlanet();update()};
-$("rs").onclick=function(){$("fl").value="Água salgada";$("pl").value="Terra";$("t").value=60;S.h=2.5;$("h").value=2.5;setPlanet();update()};
+$("rs").onclick=function(){F[CF].rho=1000;$("fl").value="Água salgada";setFluid();$("pl").value="Terra";$("t").value=60;S.h=2.5;$("h").value=2.5;setPlanet();update()};
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change",update);
-setPlanet();update();(function loop(){drawCav();requestAnimationFrame(loop)})();
+setFluid();setPlanet();update();(function loop(){drawCav();requestAnimationFrame(loop)})();
 </script>
 </body>
 </html>
