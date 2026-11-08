@@ -1,6 +1,6 @@
 # Laboratório de Pressão Hidrostática
 
-Simulador interativo, no estilo das simulações do PhET, para explorar como a pressão muda com a profundidade, o fluido e a gravidade. Ele também relaciona a pressão com o estado da matéria e com a cavitação.
+Simulador interativo, no estilo das simulações do PhET, para explorar como a pressão muda com a profundidade, o fluido e a gravidade. Ele também relaciona a pressão com o estado da matéria e com a cavitação. O foco principal do laboratório é permitir o entendimento dos conceitos de pressão, mudança de fase e cavitação, com foco totalmente didático, não utilizar para o desenvolvimento de projetos reais.
 
 **Acesse online:** https://joaovitoribeiro2000.github.io/pressao_hidrostatica/
 
